@@ -1885,7 +1885,7 @@ bool handle_chunk(msg& message)
 {
     Serial.println("CHUNK");
     last_chunk_millis = millis();
-
+    internal_delay(100);
 
 
     //serial_dump("chunk");
@@ -1943,8 +1943,10 @@ bool handle_chunk(msg& message)
               Serial.println("C0");
             #endif
         #ifdef DEBUG_SETUP
-  Serial.printf("chunk idx=%d crc=%d fast=%d updating=%d", chunk_index, crc_valid, fast_ota, updating);
-
+//Serial.printf("chunk idx=%d crc=%d fast=%d updating=%d", chunk_index, crc_valid, fast_ota, updating);
+Serial.print("chunk idx=");
+Serial.print(chunk_index);
+Serial.println("");
 #endif
    #ifdef DEBUG_SETUP
               Serial.println("C00");
