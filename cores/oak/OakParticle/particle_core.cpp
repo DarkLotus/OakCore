@@ -2003,7 +2003,7 @@ bool handle_chunk(msg& message)
 #ifdef DEBUG_SETUP
               Serial.println("C4");
             #endif
-        if (has_response && 0 > blocking_send(msg_to_send, 18))
+        if (!fast_ota && has_response && 0 > blocking_send(msg_to_send, 18))
         {
           #ifdef DEBUG_SETUP
               Serial.println("C5");
