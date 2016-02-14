@@ -1,18 +1,18 @@
 #ifndef particle_globals_h
 #define particle_globals_h
 
-//#define DEBUG_SETUP
+#define DEBUG_SETUP
 
-//#define OAK_SYSTEM_ROM_4F616B 82
+#define OAK_SYSTEM_ROM_4F616B 82
 
 #define SAFE_MODE_PIN 0
 
 #define PRODUCT_ID 82
 #define PLATFORM_ID 82
-#define OAK_SYSTEM_VERSION_INTEGER 2
+#define OAK_SYSTEM_VERSION_INTEGER 5
 #define OAK_SYSTEM_VERSION_MAJOR 1
 #define OAK_SYSTEM_VERSION_MINOR 0
-#define OAK_SYSTEM_VERSION_RELEASE 1
+#define OAK_SYSTEM_VERSION_RELEASE 2
 
 
 typedef enum

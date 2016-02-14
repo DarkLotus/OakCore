@@ -327,13 +327,12 @@ int blocking_send(const unsigned char *buf, int length)
   uint32_t start = millis();
 
   #endif
+    
   int byte_count = pClient.write(buf, length);
   #ifdef DEBUG_SETUP
     Serial.println(byte_count);
     Serial.println((millis()-start)/1000);
   #endif
-  if(byte_count==0) 
-    byte_count = -1;
   return byte_count;
 }
 
@@ -370,6 +369,7 @@ int blocking_receive(unsigned char *buf, int length)
   int byte_count = pClient.readBytes(buf, length);
   if(byte_count==0) 
     byte_count = -1;
+    Serial.println(byte_count);
   return byte_count;
 }
 
@@ -1666,7 +1666,8 @@ bool handle_update_begin(msg& message)
     }
 
     last_chunk = file.chunk_count(OTA_CHUNK_SIZE)-1;
-
+    Serial.println("LASTCHUNKNUM");
+    Serial.println(last_chunk);
     coded_ack(msg_to_send+2, success ? 0x00 : RESPONSE_CODE(4,00), queue[2], queue[3]);
     if (0 > blocking_send(msg_to_send, 18))
     {
@@ -1882,19 +1883,11 @@ void notify_update_done(uint8_t* buf)
 
 bool handle_chunk(msg& message)
 {
-  //Serial.println("CHUNK");
+    Serial.println("CHUNK");
     last_chunk_millis = millis();
 
-    uint8_t* msg_to_send = message.response;
-    // send ACK
-    *msg_to_send = 0;
-    *(msg_to_send + 1) = 16;
-    empty_ack(msg_to_send + 2, queue[2], queue[3]);
-    if (0 > blocking_send(msg_to_send, 18))
-    {
-      // error
-      return false;
-    }
+
+
     //serial_dump("chunk");
     if (!updating) {
         //serial_dump("got chunk when not updating");
@@ -1919,6 +1912,20 @@ bool handle_chunk(msg& message)
         option++;
         payload += (queue[payload]&0xF)+1;  // increase by the size. todo handle > 11
     }
+      uint8_t* msg_to_send = message.response;  
+    if(!fast_ota){
+
+    // send ACK
+    *msg_to_send = 0;
+    *(msg_to_send + 1) = 16;
+    empty_ack(msg_to_send + 2, queue[2], queue[3]);
+    if (0 > blocking_send(msg_to_send, 18))
+    {
+        Serial.println("CE1");
+      return false;
+    }
+   }
+   
     if (0xFF==queue[payload])
     {
         payload++;
@@ -1926,7 +1933,7 @@ bool handle_chunk(msg& message)
         file.chunk_size = message.len - payload - queue[message.len - 1];   // remove length added due to pkcs #7 padding?
         file.chunk_address  = file.file_address + (chunk_index * chunk_size);
         if (chunk_index>=MAX_CHUNKS) {
-            //serial_dump("invalid chunk index %d", chunk_index);
+            Serial.println("invalid chunk index");
             return false;
         }
         uint32_t crc = crc32(chunk, file.chunk_size);
@@ -2005,7 +2012,7 @@ bool handle_chunk(msg& message)
           return false;
         }
     }
-
+Serial.println("ChunkFIN");
     return true;
 }
 
@@ -2060,6 +2067,8 @@ bool handle_update_done(msg& message)
 
 bool handle_message(msg& message, token_t token, CoAPMessageType::Enum message_type)
 {
+  Serial.println("HM1");
+  Serial.println(message_type);
   switch (message_type)
   {
 
@@ -2222,19 +2231,22 @@ CoAPMessageType::Enum received_message(unsigned char *buf, size_t length)
 
 CoAPMessageType::Enum handle_received_message(void)
 {
+  Serial.println("HRM1");
   last_message_millis = millis();
   expecting_ping_ack = false;
   size_t len = queue[0] << 8 | queue[1];
   if (len > QUEUE_SIZE) { // TODO add sanity check on data, e.g. CRC
+    Serial.println("HRME1");
       return CoAPMessageType::ERROR;
   }
   if (0 > blocking_receive(queue, len))
   {
     // error
-    return CoAPMessageType::ERROR;;
+    Serial.println("HRME2");
+    return CoAPMessageType::ERROR;
   }
   CoAPMessageType::Enum message_type = received_message(queue, len);
-
+  Serial.println("HRM2");
   unsigned char token = queue[4];
   unsigned char *msg_to_send = queue + len;
 
@@ -2244,10 +2256,18 @@ CoAPMessageType::Enum handle_received_message(void)
   message.response = msg_to_send;
   message.response_len = QUEUE_SIZE-len;
 
-  return handle_message(message, token, message_type)
-          ? message_type : CoAPMessageType::ERROR;
-}
+bool handleresponse = handle_message(message, token, message_type);
+Serial.print("HRM3 ");
+Serial.println(handleresponse);
+//Serial.print("Free heap:");
+//Serial.println(ESP.getFreeHeap(),DEC);
 
+if(handleresponse)
+  return message_type;
+  return CoAPMessageType::ERROR;
+  /*return handle_message(message, token, message_type)
+          ? message_type : CoAPMessageType::ERROR;*/
+}
 
 // Returns true if no errors and still connected.
 // Returns false if there was an error, and we are probably disconnected.
