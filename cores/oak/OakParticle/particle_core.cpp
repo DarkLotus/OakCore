@@ -1634,6 +1634,8 @@ uint16_t last_chunk = 0;
 
 bool handle_update_begin(msg& message)
 {
+  //event here will send
+//  spark_send_event("oak/device/stderr","OTA Update Starting", 60, PRIVATE, NULL); 
     // send ACK
     uint8_t* msg_to_send = message.response;
     *msg_to_send = 0;
@@ -1666,8 +1668,6 @@ bool handle_update_begin(msg& message)
     }
 
     last_chunk = file.chunk_count(OTA_CHUNK_SIZE)-1;
-    Serial.println("LASTCHUNKNUM");
-    Serial.println(last_chunk);
     coded_ack(msg_to_send+2, success ? 0x00 : RESPONSE_CODE(4,00), queue[2], queue[3]);
     if (0 > blocking_send(msg_to_send, 18))
     {
@@ -1680,6 +1680,8 @@ bool handle_update_begin(msg& message)
         {
             #ifdef DEBUG_SETUP
               Serial.println("F1");
+              Serial.println("LASTCHUNKNUM");
+              Serial.println(last_chunk);
             #endif
             last_chunk_millis = millis();
             chunk_index = 0;
@@ -1695,7 +1697,8 @@ bool handle_update_begin(msg& message)
               Serial.println("F2");
             #endif
             update_ready(msg_to_send + 2, message.token, (flags & 0x1));
-
+            
+            //Event does not send
             spark_send_event("oak/device/stderr","OTA Update Started", 60, PRIVATE, NULL); 
             delay(100);
             
@@ -1885,7 +1888,7 @@ bool handle_chunk(msg& message)
 {
     Serial.println("CHUNK");
     last_chunk_millis = millis();
-    internal_delay(100);
+    internal_delay(5);
 
 
     //serial_dump("chunk");
@@ -2014,7 +2017,9 @@ Serial.println("");
           return false;
         }
     }
-Serial.println("ChunkFIN");
+    #ifdef DEBUG_SETUP
+      Serial.println("ChunkFIN");
+    #endif
     return true;
 }
 
@@ -2069,8 +2074,10 @@ bool handle_update_done(msg& message)
 
 bool handle_message(msg& message, token_t token, CoAPMessageType::Enum message_type)
 {
-  Serial.println("HM1");
-  Serial.println(message_type);
+  #ifdef DEBUG_SETUP
+    Serial.println("HM1");
+    Serial.println(message_type);
+  #endif
   switch (message_type)
   {
 
@@ -2233,22 +2240,21 @@ CoAPMessageType::Enum received_message(unsigned char *buf, size_t length)
 
 CoAPMessageType::Enum handle_received_message(void)
 {
-  Serial.println("HRM1");
+  #ifdef DEBUG_SETUP
+    Serial.println("HRM1");
+  #endif
   last_message_millis = millis();
   expecting_ping_ack = false;
   size_t len = queue[0] << 8 | queue[1];
   if (len > QUEUE_SIZE) { // TODO add sanity check on data, e.g. CRC
-    Serial.println("HRME1");
       return CoAPMessageType::ERROR;
   }
   if (0 > blocking_receive(queue, len))
   {
     // error
-    Serial.println("HRME2");
     return CoAPMessageType::ERROR;
   }
   CoAPMessageType::Enum message_type = received_message(queue, len);
-  Serial.println("HRM2");
   unsigned char token = queue[4];
   unsigned char *msg_to_send = queue + len;
 
@@ -2259,16 +2265,9 @@ CoAPMessageType::Enum handle_received_message(void)
   message.response_len = QUEUE_SIZE-len;
 
 bool handleresponse = handle_message(message, token, message_type);
-Serial.print("HRM3 ");
-Serial.println(handleresponse);
-//Serial.print("Free heap:");
-//Serial.println(ESP.getFreeHeap(),DEC);
 
-if(handleresponse)
-  return message_type;
-  return CoAPMessageType::ERROR;
-  /*return handle_message(message, token, message_type)
-          ? message_type : CoAPMessageType::ERROR;*/
+  return handle_message(message, token, message_type)
+          ? message_type : CoAPMessageType::ERROR;
 }
 
 // Returns true if no errors and still connected.
